@@ -14,9 +14,33 @@ class App:
     _window: tk.Tk
     _question_button: tk.Button
     _user_input: tk.Text
+    _correct_answer_box: tk.Text
     _next_question_button: tk.Button
     _correct_label: tk.Label
     _wrong_label: tk.Label
+
+    def init_counts(self):
+        self._correct_label = tk.Label(
+            self._window,
+            text=f"Correct: {self._questions.correct_count}",
+            font=("Helvetica", 20),
+        )
+        self._correct_label.configure(background="black", foreground="white")
+        self._correct_label.grid(row=3, column=1, columnspan=3)
+
+        self._wrong_label = tk.Label(
+            self._window,
+            text=f"Wrong: {self._questions.failures_count}",
+            font=("Helvetica", 20),
+        )
+        self._wrong_label.configure(background="black", foreground="white")
+        self._wrong_label.grid(row=4, column=1, columnspan=3)
+
+
+
+    def update_counts(self):
+        self._correct_label["text"] = f"Correct: {self._questions.correct_count}"
+        self._wrong_label["text"] = f"Wrong: {self._questions.failures_count}"
 
     def __init__(self, questions:Questions):
         self._questions = questions
@@ -30,7 +54,7 @@ class App:
         self._next_answer = None
 
         self._window = tk.Tk()
-        self._window.geometry("800x200")
+        self._window.geometry("1800x500")
         self._window.resizable(False, False)
         self._window.attributes("-type", "dialog")
         self._window.title("Dyktando")
@@ -38,6 +62,8 @@ class App:
         self._window.grid_columnconfigure(0, weight=1)
         self._window.grid_columnconfigure(1, weight=1)
         self._window.grid_columnconfigure(2, weight=1)
+
+        self.init_counts()
 
         self._question_button = tk.Button(self._window, text="Play question")
         self._question_button.configure(background="black", foreground="white")
@@ -49,24 +75,14 @@ class App:
         self._question_button.grid(row=0, column=1, columnspan=3)
 
         self._user_input = tk.Text(self._window, font=("Helvetica", 20), height=2)
-        self._user_input.configure(background="black", foreground="white")
+        self._user_input.configure(background="black", foreground="white", insertbackground="white")
         self._user_input.grid(row=1, column=1, columnspan=3)
+        self._user_input["state"] = "normal"  # Ensure the text box is enabled
 
-        self._correct_label = tk.Label(
-            self._window,
-            text=f"Correct: {self._questions.correct_count}",
-            font=("Helvetica", 20),
-        )
-        self._correct_label.configure(background="black", foreground="white")
-        self._correct_label.grid(row=2, column=1, columnspan=3)
-
-        self._wrong_label = tk.Label(
-            self._window,
-            text=f"Wrong: {self._questions.failures_count}",
-            font=("Helvetica", 20),
-        )
-        self._wrong_label.configure(background="black", foreground="white")
-        self._wrong_label.grid(row=3, column=1, columnspan=3)
+        self._correct_answer_box = tk.Text(self._window, font=("Helvetica", 20), height=2)
+        self._correct_answer_box.configure(background="black", foreground="white", insertbackground="white")
+        self._correct_answer_box.grid(row=2, column=1, columnspan=3)
+        self._correct_answer_box["state"] = "disabled"  # Ensure the text box is readonly
 
         self._next_question_button = tk.Button(self._window, text="Next question")
         self._next_question_button.configure(background="black", foreground="white")
@@ -74,7 +90,7 @@ class App:
             activebackground="black", activeforeground="white"
         )
         self._next_question_button.bind("<ButtonPress>", self.next_question)
-        self._next_question_button.grid(row=4, column=2, columnspan=3)
+        self._next_question_button.grid(row=5, column=2, columnspan=3)
 
         # self._next_question_button["state"] = "disabled"
 
@@ -84,10 +100,12 @@ class App:
             activebackground="black", activeforeground="white"
         )
         self._check_button.bind("<ButtonPress>", self.check_answer)
-        self._check_button.grid(row=4, column=0, columnspan=3)
+        self._check_button.grid(row=5, column=0, columnspan=3)
 
         if self._questions.index >= len(self._questions):
             self.finish_popup()
+        else:
+            self.play_question()
 
     def key_pressed(self, event):
         if event.keysym == "Return":
@@ -107,17 +125,20 @@ class App:
         self._next_question_button["state"] = "normal"
         self._user_input["state"] = "disabled"
         self._check_button["state"] = "disabled"
-        correct = (user_answer == self._questions.get_question().text)
-        answer = Answer(text = user_answer, correct = correct)
+        correct = self._questions.check_answer(user_answer)
         if correct:
-            self._correct_label["text"] = f"Correct: {self._questions.correct_count}"
             song = AudioSegment.from_mp3(get_resource_path("correct.mp3"))
         else:
-            self._wrong_label["text"] = f"Wrong: {self._questions.failures_count}"
             song = AudioSegment.from_mp3(get_resource_path("incorrect.mp3"))
         Thread(target=play, args=(song,)).start()
 
-        self._questions.put_answer(answer)
+        self.update_counts()
+
+        correct_answer = self._questions.get_question().text
+        self._correct_answer_box["state"] = "normal"
+        self._correct_answer_box.delete("1.0", "end")
+        self._correct_answer_box.insert("1.0", correct_answer)
+        self._correct_answer_box["state"] = "disabled"
 
         if self._questions.index >= len(self._questions) - 1:
             self.finish_popup()
@@ -178,6 +199,9 @@ class App:
         self._questions.next_question()
         self._user_input["state"] = "normal"
         self._user_input.delete("1.0", "end")
+        self._correct_answer_box["state"] = "normal"
+        self._correct_answer_box.delete("1.0", "end")
+        self._correct_answer_box["state"] = "disabled"
         self.play_question()
 
     @property
