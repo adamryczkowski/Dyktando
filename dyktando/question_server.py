@@ -97,7 +97,8 @@ class Questions:
             if len(self._answers) == self._index:
                 self._answers.append(answer)
             else:
-                assert False
+                self._answers.append(answer)
+                # assert False
         self.save_answers()
 
     def next_question(self):
